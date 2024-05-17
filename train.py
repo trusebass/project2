@@ -28,7 +28,8 @@ def train(
     # TODO: Set your own values for the hyperparameters
     num_epochs = 50
     # lr = 1e-4
-    # train_batch_size = 8
+    train_batch_size = 8
+    shuffle = True
     # val_batch_size = 1
     # ...
 
@@ -37,12 +38,19 @@ def train(
     # print(f"[INFO]: Learning rate: {lr}")
     # print(f"[INFO]: Training batch size: {train_batch_size}")
 
+    #set data root
+    train_data_root = "./datasets/public_test_images_378_252"
+
     # Choose Device
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     # TODO: Define your Dataset and DataLoader
     # ETHMugsDataset
+    train_dataset = ETHMugsDataset(train_data_root, "train")
     # Data loaders
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, train_batch_size, shuffle
+    )
     # train_dataset = ...
     # train_dataloader = ...
     # val_dataset = ...
