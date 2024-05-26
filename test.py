@@ -48,7 +48,7 @@ if __name__ == "__main__":
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     # Build Model
-    # model = build_model(...)
+    model = build_model("UNetSmall")
 
     # Load pre-trained model
     print(f"[INFO]: Loading the pre-trained model: {args.ckpt}")
@@ -59,6 +59,7 @@ if __name__ == "__main__":
 
     # Create an instance of the custom dataset
     test_dataset = ETHMugsDataset(root_dir=test_data_root, mode="test")
+
 
     # Create dataloaders
     test_batch_size = 1
@@ -71,7 +72,7 @@ if __name__ == "__main__":
             test_image = test_image.to(device)
 
             # TODO: Forward pass
-            # test_output = model(test_image)
+            test_output = model(test_image)
 
             # Save the predicted mask
             resized_pred_mask = Image.fromarray(test_output.cpu().numpy())

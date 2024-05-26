@@ -6,67 +6,15 @@ from datetime import datetime
 
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 import torch.optim as optim
 
 from eth_mugs_dataset import ETHMugsDataset
 from utils import IMAGE_SIZE, compute_iou
 
 
-def build_model():  # TODO: Add your model definition here
+def build_model(model_name):  # TODO: Add your model definition here
     """Build the model."""
-
-
-def train(
-    ckpt_dir: str,
-    train_data_root: str,
-    val_data_root: str,
-):
-    """Train function."""
-    # Logging and validation settings
-    log_frequency = 10
-    val_batch_size = 1
-    val_frequency = 10
-
-    # TODO: Set your own values for the hyperparameters
-    num_epochs = 50
-    # lr = 1e-4
-    train_batch_size = 8
-    shuffle = True
-    # val_batch_size = 1
-    # ...
-
-    print(f"[INFO]: Number of training epochs: {num_epochs}")
-    # print(f"[INFO]: Image scale: {image_scale}")
-    # print(f"[INFO]: Learning rate: {lr}")
-    # print(f"[INFO]: Training batch size: {train_batch_size}")
-
-    #set data root
-    train_data_root = ".\datasets\public_test_images_378_252"
-
-    # Choose Device
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
-    # TODO: Define your Dataset and DataLoader
-    # ETHMugsDataset
-    train_dataset = ETHMugsDataset(train_data_root, "train")
-    val_dataset = ETHMugsDataset(val_data_root, "val")
-    # Data loaders
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, train_batch_size, shuffle
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset, val_batch_size, shuffle
-    )
-    # train_dataset = ...
-    # train_dataloader = ...
-    # val_dataset = ...
-    # val_dataloader = ...
-
-    # TODO: Define you own model
-    # model = build_model(...)
-    # model.to(device)
-    
     class CNNModel(nn.Module):
         def __init__(self):
             super(CNNModel, self).__init__()
@@ -95,75 +43,90 @@ def train(
             return x
     
     class UNet(nn.Module):
-        def __init__(self, input_channels=3, num_classes=2):
+        def __init__(self, input_channels=3, num_classes=1):
             super(UNet, self).__init__()
             
             # Encoder
-            self.enc1 = self.conv_block(input_channels, 64)
-            self.enc2 = self.conv_block(64, 128)
-            self.enc3 = self.conv_block(128, 256)
-            self.enc4 = self.conv_block(256, 512)
-            self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+            self.enc1 = self.conv_block(input_channels, 32)
+            self.enc2 = self.conv_block(32, 64)
+            self.enc3 = self.conv_block(64, 128)
+            self.enc4 = self.conv_block(128, 256)
+            #self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
             
             # Bottleneck
-            self.bottleneck = self.conv_block(512, 1024)
+            self.bottleneck = self.conv_block(256, 512)
             
             # Decoder
-            self.upconv4 = nn.ConvTranspose2d(1024, 512, kernel_size=2, stride=2)
-            self.dec4 = self.conv_block(1024, 512)
-            self.upconv3 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
-            self.dec3 = self.conv_block(512, 256)
-            self.upconv2 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
-            self.dec2 = self.conv_block(256, 128)
-            self.upconv1 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
-            self.dec1 = self.conv_block(128, 64)
+            self.upconv4 = nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2)
+            self.dec4 = self.conv_block(512, 256)
+            self.upconv3 = nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2)
+            self.dec3 = self.conv_block(256, 128)
+            self.upconv2 = nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2)
+            self.dec2 = self.conv_block(128, 64)
+            self.upconv1 = nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2)
+            self.dec1 = self.conv_block(64, 32)
             
-            # Output layer
-            self.conv_final = nn.Conv2d(64, num_classes, kernel_size=1)
+            # Output layer 
+            self.conv_final = nn.Conv2d(32, num_classes, kernel_size=1)
 
         def conv_block(self, in_channels, out_channels):
             block = nn.Sequential(
                 nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-                nn.BatchNorm2d(out_channels),
+                #nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-                nn.BatchNorm2d(out_channels),
+                #nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True)
             )
             return block
 
         def forward(self, x):
             # Encoder
-            enc1 = self.enc1(x.float())
-            enc2 = self.enc2(self.pool(enc1))
-            enc3 = self.enc3(self.pool(enc2))
-            enc4 = self.enc4(self.pool(enc3))
+            enc1 = self.enc1(x)
+            enc2 = self.enc2(F.max_pool2d(enc1, 2))
+            enc3 = self.enc3(F.max_pool2d(enc2, 2))
+            enc4 = self.enc4(F.max_pool2d(enc3, 2))
             
             # Bottleneck
-            bottleneck = self.bottleneck(self.pool(enc4))
+            bottleneck = self.bottleneck(F.max_pool2d(enc4, 2))
             
             # Decoder
             dec4 = self.upconv4(bottleneck)
-            dec4 = torch.cat((dec4, enc4[:, :, :dec4.size(2), :dec4.size(3)]), dim=1)  # Adjusted tensor dimensions
+            dec4 = self.center_crop_and_concat(enc4, dec4)
             dec4 = self.dec4(dec4)
             
             dec3 = self.upconv3(dec4)
-            dec3 = torch.cat((dec3, enc3[:, :, :dec3.size(2), :dec3.size(3)]), dim=1)
+            dec3 = self.center_crop_and_concat(enc3, dec3)
             dec3 = self.dec3(dec3)
             
             dec2 = self.upconv2(dec3)
-            dec2 = torch.cat((dec2, enc2[:, :, :dec2.size(2), :dec2.size(3)]), dim=1)  # Adjusted tensor dimensions
+            dec2 = self.center_crop_and_concat(enc2, dec2)
             dec2 = self.dec2(dec2)
             
             dec1 = self.upconv1(dec2)
-            dec1 = torch.cat((dec1, enc1[:, :, :dec1.size(2), :dec1.size(3)]), dim=1)  # Adjusted tensor dimensions
+            dec1 = self.center_crop_and_concat(enc1, dec1)
             dec1 = self.dec1(dec1)
             
             # Output
-            return self.conv_final(dec1)
+            #return self.conv_final(dec1)
+            return torch.sigmoid(self.final(dec1))
+        
+        def center_crop_and_concat(self, enc, dec):
+            # Find the target size that matches the decoder size
+            target_size = dec.size()[2:]
+            enc_size = enc.size()[2:]
+
+            # Calculate the crop coordinates
+            crop_start = [(enc_size[i] - target_size[i]) // 2 for i in range(len(target_size))]
+            crop_end = [crop_start[i] + target_size[i] for i in range(len(target_size))]
+
+            # Crop the encoder output
+            enc_cropped = enc[:, :, crop_start[0]:crop_end[0], crop_start[1]:crop_end[1]]
+
+            return torch.cat((enc_cropped, dec), dim=1)
         
     class UNetSmall(nn.Module):
-        def __init__(self, input_channels=3, num_classes=2):
+        def __init__(self, input_channels=3, num_classes=1):
             super(UNetSmall, self).__init__()
             
             # Encoder
@@ -205,11 +168,71 @@ def train(
             
             # Output
             return self.conv_final(dec1)
+
+    if model_name == "CNNModel":
+        return CNNModel()
+    elif model_name == "UNet":
+        return UNet()
+    elif model_name == "UNetSmall":
+        return UNetSmall()
+
+def train(
+    ckpt_dir: str,
+    train_data_root: str,
+    val_data_root: str,
+):
+    """Train function."""
+    # Logging and validation settings
+    log_frequency = 10
+    val_batch_size = 1
+    val_frequency = 10
+
+    # TODO: Set your own values for the hyperparameters
+    num_epochs = 50
+    lr = 1e-4
+    train_batch_size = 8
+    shuffle = True
+    # val_batch_size = 1
+    # ...
+
+    print(f"[INFO]: Number of training epochs: {num_epochs}")
+    # print(f"[INFO]: Image scale: {image_scale}")
+    # print(f"[INFO]: Learning rate: {lr}")
+    # print(f"[INFO]: Training batch size: {train_batch_size}")
+
+    #set data root
+    train_data_root = ".\datasets\public_test_images_378_252"
+
+    # Choose Device
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+    # TODO: Define your Dataset and DataLoader
+    # ETHMugsDataset
+    train_dataset = ETHMugsDataset(train_data_root, "train")
+    val_dataset = ETHMugsDataset(val_data_root, "val")
+    # Data loaders
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset, train_batch_size, shuffle
+    )
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset, val_batch_size, shuffle
+    )
+    # train_dataset = ...
+    # train_dataloader = ...
+    # val_dataset = ...
+    # val_dataloader = ...
+
+    # TODO: Define you own model
+    # model = build_model(...)
+    # model.to(device)
+    
+    
     
     # Instantiate the model
     input_channels = 3  # e.g., RGB images
-    num_classes = 2  # e.g., binary segmentation
-    model = UNetSmall(input_channels=input_channels, num_classes=num_classes)
+    num_classes = 1  # e.g., binary segmentation
+    #model = UNetSmall(input_channels=input_channels, num_classes=num_classes)
+    model = build_model("UNetSmall")
     model.to(device)
     
     # Print the model architecture
@@ -235,16 +258,38 @@ def train(
             dice = dice_loss(inputs, targets)
             return ce_loss + dice
     
-    criterion = nn.BCELoss()
+    class DiceLoss(torch.nn.Module):
+        def __init__(self):
+            super(DiceLoss, self).__init__()
+
+        def forward(self, inputs, targets, smooth=1):
+            # comment out if your model contains a sigmoid or equivalent activation layer
+            inputs = torch.sigmoid(inputs)
+
+            # flatten label and prediction tensors
+            inputs = inputs.view(-1)
+            targets = targets.view(-1)
+
+            intersection = (inputs * targets).sum()
+            dice = (2. * intersection + smooth) / (inputs.sum() + targets.sum() + smooth)
+
+            return 1 - dice
+        
+    
+    
+    
+    criterion = DiceLoss()
 
     # TODO: Define Optimizer
     # optimizer = ...
-    optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = optim.Adam(model.parameters(), lr)
 
     # TODO: Define Learning rate scheduler if needed
     # lr_scheduler = ...
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 
     # TODO: Write the training loop!
+    best_val_iou = 0.0  # Track the best validation IoU
     print("[INFO]: Starting training...")
     for epoch in range(num_epochs):
         model.train()
@@ -259,9 +304,13 @@ def train(
             # Forward pass
             # output = model(image ...)
             outputs = model(image)
-
+            
+            # Stellen Sie sicher, dass die Ausgaben und Ziele die gleiche Form haben
+            #if outputs.shape != gt_mask.shape:
+                #outputs = nn.functinoal.interpolate(outputs, size=gt_mask.shape[2:], mode="bilinear", align_corners=False)
+            outputs = torch.squeeze(outputs)
             # loss = criterion(output ...)
-            loss = criterion(outputs, gt_mask)  # Adjusted tensor dimensions
+            loss = criterion()
 
             # Backward pass
             loss.backward()
@@ -297,6 +346,11 @@ def train(
                 val_iou *= 100
 
                 print(f"[INFO]: Validation IoU: {val_iou.item():.2f}")
+                
+                if val_iou > best_val_iou:
+                    best_val_iou = val_iou
+                    torch.save(model.state_dict(), os.path.join(ckpt_dir, f"best_model.pth"))
+                    print(f"[INFO]: Best model saved with IoU: {val_iou.item():.2f}")
 
 
 if __name__ == "__main__":

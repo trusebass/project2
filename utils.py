@@ -58,9 +58,9 @@ def compute_iou(pred_mask, gt_mask, eps=1e-6):
         iou_score (float)
     """
     intersection = (
-        (pred_mask & gt_mask).astype(float).sum()
+      (pred_mask.long() & gt_mask.long()).sum()
     )  # will be zero if gt=0 or pred=0
-    union = (pred_mask | gt_mask).astype(float).sum()  # will be zero if both are 0
+    union = (pred_mask.long() | gt_mask.long()).sum()  # will be zero if both are 0
     iou = (intersection + eps) / (
         union + eps
     )  # we smooth our division by epsilon to avoid 0/0
