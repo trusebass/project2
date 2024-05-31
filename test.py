@@ -34,7 +34,8 @@ if __name__ == "__main__":
 
     # Set data root
     if args.split == "public_test":
-        test_data_root = os.path.join(args.data_root, "public_test_images_378_252")
+        #test_data_root = os.path.join(args.data_root, "public_test_images_378_252")
+        test_data_root = "/content/drive/MyDrive/project2/datasets/public_test_images_378_252"
         out_dir = os.path.join("public_test", "prediction")
     else:
         test_data_root = os.path.join(args.data_root, "private_test_images_378_252")
@@ -58,18 +59,19 @@ if __name__ == "__main__":
     model.eval()
 
     # Create an instance of the custom dataset
-    test_dataset = ETHMugsDataset(root_dir=test_data_root, mode="test")
+    test_dataset = ETHMugsDataset(test_data_root, "test")
 
 
     # Create dataloaders
     test_batch_size = 1
     test_dataloader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=test_batch_size, shuffle=False
+        test_dataset, test_batch_size, shuffle=False
     )
 
     with torch.no_grad():
-        for i, test_image in enumerate(tqdm(test_dataloader)):
+        for test_image in test_dataloader:
             test_image = test_image.to(device)
+            #test_image = torch.tensor(test_image).to(device)  # Convert test_image to a tensor and move it to the device
 
             # TODO: Forward pass
             test_output = model(test_image)

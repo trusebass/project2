@@ -39,7 +39,7 @@ class ETHMugsDataset(Dataset):
 
         print("[INFO] Dataset mode:", mode)
         print(
-            "[INFO] Number of images in the {} dataset: {}".format(mode, len(self.image_paths))
+            "[INFO] Number of images in the {} dataset  : {}".format(mode, len(self.image_paths))
         )
 
     def __len__(self):
